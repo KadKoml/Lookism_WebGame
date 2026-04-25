@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS shop_items;
+DROP TABLE IF EXISTS user_cards;
+DROP TABLE IF EXISTS card_templates;
+DROP TABLE IF EXISTS user_wallets;
+DROP TABLE IF EXISTS users;

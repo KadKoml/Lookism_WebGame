@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database for Gacha/Economy
+  postgres:
+    image: postgres:15-alpine
+    container_name: lookism_postgres
+    environment:
+      POSTGRES_USER: lookism_user
+      POSTGRES_PASSWORD: lookism_password
+      POSTGRES_DB: lookism_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lookism_user -d lookism_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Combat Service state
+  redis:
+    image: redis:7-alpine
+    container_name: lookism_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+  # NATS Message Broker
+  nats:
+    image: nats:2.9-alpine
+    container_name: lookism_nats
+    ports:
+      - "4222:4222" # Client connections
+      - "8222:8222" # HTTP management
+    command: ["-js"] # Enable JetStream if needed
+
+  # Prometheus for Metrics
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: lookism_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+
+  # Grafana for Dashboards
+  grafana:
+    image: grafana/grafana:10.0.3
+    container_name: lookism_grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+
+  # Mailpit for local SMTP testing
+  mailpit:
+    image: axllent/mailpit
+    container_name: lookism_mailpit
+    ports:
+      - "8025:8025" # Web UI
+      - "1025:1025" # SMTP port
+
+volumes:
+  postgres_data:
+  redis_data:
+  grafana_data:
