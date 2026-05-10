@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lookism RPG</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        body { -webkit-tap-highlight-color: transparent; user-select: none; }
+        .view { display: none; flex-direction: column; height: 100%; }
+        .view.active { display: flex; animation: fadeIn 0.3s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Gacha Animation Classes */
+        @keyframes flash {
+            0% { background-color: white; opacity: 1; }
+            100% { background-color: transparent; opacity: 0; }
+        }
+        .animate-flash { animation: flash 1s ease-out forwards; }
+        
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            80% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-pop-in { animation: popIn 0.5s ease-out forwards; }
+
+        /* Boss Rage Animation */
+        @keyframes rumble {
+            0% { transform: translate(0, 0) rotate(0deg) scale(1); filter: hue-rotate(0deg) contrast(1); }
+            20% { transform: translate(-10px, 10px) rotate(-2deg) scale(1.05); filter: hue-rotate(-20deg) contrast(1.5) drop-shadow(0 0 20px red); }
+            40% { transform: translate(10px, -10px) rotate(2deg) scale(1.1); filter: hue-rotate(20deg) contrast(2) drop-shadow(0 0 40px darkred); }
+            60% { transform: translate(-10px, -10px) rotate(-2deg) scale(1.05); filter: hue-rotate(40deg) contrast(2.5) drop-shadow(0 0 50px red); }
+            80% { transform: translate(10px, 10px) rotate(2deg) scale(1.1); filter: hue-rotate(-40deg) contrast(2) drop-shadow(0 0 40px darkred); }
+            100% { transform: translate(0, 0) rotate(0deg) scale(1); filter: hue-rotate(0deg) contrast(1); }
+        }
+        .animate-boss-phase { 
+            animation: rumble 0.15s infinite; 
+            box-shadow: inset 0 0 150px rgba(255, 0, 0, 0.9) !important; 
+        }
+
+        @keyframes glitch-img {
+            0% { transform: skewX(0deg); filter: invert(0%); }
+            10% { transform: skewX(-20deg); filter: invert(100%); }
+            20% { transform: skewX(20deg); filter: invert(0%); }
+            100% { transform: skewX(0deg); filter: invert(0%); }
+        }
+        .animate-boss-img { animation: glitch-img 0.3s infinite; }
+
+        /* Boss Screamer Animation */
+        @keyframes screamer-flash {
+            0% { opacity: 0; transform: scale(1.5) rotate(0deg); }
+            10% { opacity: 1; transform: scale(1.1) rotate(-2deg); filter: invert(100%); }
+            20% { opacity: 1; transform: scale(1) rotate(2deg); filter: invert(0%) contrast(300%); }
+            30% { opacity: 1; transform: scale(1.2) rotate(-5deg); filter: brightness(200%); }
+            40% { opacity: 0.8; transform: scale(1) rotate(0deg); filter: hue-rotate(90deg); }
+            50% { opacity: 1; transform: scale(1.3) rotate(5deg); filter: invert(100%) sepia(100%) hue-rotate(0deg) saturate(500%) drop-shadow(0 0 50px red); }
+            60% { opacity: 1; transform: scale(1.1) rotate(-3deg); filter: grayscale(100%) contrast(500%); }
+            70% { opacity: 0.5; transform: scale(1.5) rotate(10deg); filter: invert(0%); }
+            80% { opacity: 1; transform: scale(1) rotate(-10deg); filter: saturate(1000%) hue-rotate(180deg); }
+            90% { opacity: 1; transform: scale(1.2) rotate(2deg); filter: contrast(400%); }
+            100% { opacity: 1; transform: scale(1.05) rotate(0deg); filter: none; }
+        }
+        .animate-screamer { animation: screamer-flash 0.15s infinite; mix-blend-mode: hard-light; }
+
+        /* UI Daniel Awakening Animation */
+        @keyframes ui-awaken {
+            0% { filter: grayscale(100%) contrast(1.5) brightness(0.2); transform: scale(1.05); }
+            50% { filter: grayscale(100%) contrast(2) brightness(0.8); transform: scale(1); }
+            100% { filter: grayscale(100%) contrast(1.5) brightness(0.2); transform: scale(1.05); }
+        }
+        .animate-ui-screamer { animation: ui-awaken 4s ease-in-out infinite; }
+
+        /* Tooltip */
+        .has-tooltip { position: relative; }
+        .has-tooltip .tooltip {
+            visibility: hidden; position: absolute; z-index: 50;
+            bottom: 125%; left: 50%; transform: translateX(-50%);
+            width: max-content; max-width: 200px;
+            background-color: #1e293b; color: #cbd5e1;
+            text-align: center; border-radius: 0.5rem; padding: 0.5rem;
+            font-size: 0.75rem; font-weight: normal; border: 1px solid #475569;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            pointer-events: none; opacity: 0; transition: opacity 0.2s;
+        }
+        .has-tooltip:hover .tooltip { visibility: visible; opacity: 1; }
+        
+        /* Health Bar Transition */
+        .hp-fill { transition: width 0.3s ease-in-out; }
+        .combat-log-msg { animation: popIn 0.2s ease-out forwards; }
+    </style>
+</head>
+<body class="bg-black text-slate-100 min-h-screen font-sans sm:py-4 transition-colors duration-1000" id="main-body">
+    
+    <div class="max-w-md mx-auto w-full h-screen sm:h-[850px] sm:rounded-3xl bg-slate-900 overflow-hidden relative shadow-2xl border-0 sm:border sm:border-slate-800 flex flex-col" id="app-container">
+        
+        <!-- Header -->
+        <div id="nav-header" class="hidden flex-shrink-0 bg-slate-800 p-4 flex items-center justify-between border-b border-slate-700 z-40">
+            <button onclick="navigateBack()" class="text-slate-400 hover:text-white transition p-2 -ml-2 rounded-lg" id="back-btn">
+                ◀ Назад
+            </button>
+            <h1 id="header-title" class="text-lg font-bold">Lookism RPG</h1>
+            <div class="w-16 text-right text-xs text-yellow-400 font-bold has-tooltip">
+                💰 <span id="money-display">0</span>
+                <span class="tooltip">Ваша игровая валюта. Добывается в Кампании. Используется в Магазине.</span>
+            </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4 pb-8" id="scroll-container">
+            
+            <!-- MAIN MENU -->
+            <div id="view-main-menu" class="view active justify-center space-y-8">
+                <div class="text-center space-y-2 mb-8">
+                    <h1 class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Lookism RPG</h1>
+                    <p class="text-sm text-slate-400">Добро пожаловать, <span id="welcome-username" class="text-white font-bold">Гость</span></p>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="navigate('profile')" class="bg-slate-800 hover:bg-slate-700 transition rounded-xl p-6 flex flex-col items-center justify-center space-y-2 border border-slate-700 shadow-md">
+                        <span class="text-3xl">👤</span><span class="font-medium text-sm">Профиль</span>
+                    </button>
+                    <button onclick="navigate('collection')" class="bg-slate-800 hover:bg-slate-700 transition rounded-xl p-6 flex flex-col items-center justify-center space-y-2 border border-slate-700 shadow-md">
+                        <span class="text-3xl">🃏</span><span class="font-medium text-sm">Коллекция</span>
+                    </button>
+                    <button onclick="navigate('squad')" class="bg-slate-800 hover:bg-slate-700 transition rounded-xl p-6 flex flex-col items-center justify-center space-y-2 border border-slate-700 shadow-md">
+                        <span class="text-3xl">🎖</span><span class="font-medium text-sm">Отряд</span>
+                    </button>
+                    <button onclick="navigate('campaign')" class="bg-slate-800 hover:bg-slate-700 transition rounded-xl p-6 flex flex-col items-center justify-center space-y-2 border border-slate-700 shadow-md">
+                        <span class="text-3xl">🗺</span><span class="font-medium text-sm">Кампания</span>
+                    </button>
+                    <button onclick="navigate('packs')" class="bg-slate-800 hover:bg-slate-700 transition rounded-xl p-6 flex flex-col items-center justify-center space-y-2 border border-slate-700 shadow-md relative overflow-hidden">
+                        <div class="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                        <span class="text-3xl">🎁</span><span class="font-medium text-sm">Наборы</span>
+                    </button>
+                    <button onclick="navigate('shop')" class="bg-slate-800 hover:bg-slate-700 transition rounded-xl p-6 flex flex-col items-center justify-center space-y-2 border border-slate-700 shadow-md">
+                        <span class="text-3xl">🛒</span><span class="font-medium text-sm">Магазин</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- CAMPAIGN -->
+            <div id="view-campaign" class="view space-y-4">
+                <div class="bg-slate-800 rounded-xl p-4 mb-2 border border-slate-700">
+                    <h2 class="text-xl font-bold text-blue-400 mb-1">Глава 1: Улицы</h2>
+                    <p class="text-xs text-slate-400">Сражайтесь 3v3 и победите босса.</p>
+                </div>
+                <div class="flex flex-col space-y-3" id="campaign-list"></div>
+            </div>
+
+            <!-- COLLECTION -->
+            <div id="view-collection" class="view space-y-3"></div>
+
+            <!-- SQUAD -->
+            <div id="view-squad" class="view space-y-4">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="font-bold text-xl">🎖 Отряд</h2>
+                    <span class="text-xs bg-slate-800 border border-slate-700 px-3 py-1 rounded-full text-slate-300 has-tooltip" id="squad-synergy">
+                        ⚡️ Синергия: None
+                        <span class="tooltip">Дает бонус к характеристикам, если в отряде 2 и более персонажей из одной фракции.</span>
+                    </span>
+                </div>
+                <div id="squad-list" class="space-y-4"></div>
+            </div>
+            
+            <div id="view-squad-select" class="view space-y-3">
+                <div class="bg-slate-800 p-3 rounded-xl border border-slate-700 text-sm text-slate-300 mb-2">
+                    Выберите карту для слота <span id="selecting-slot-number" class="font-bold text-white"></span>
+                </div>
+                <div id="squad-select-list" class="space-y-2"></div>
+            </div>
+
+            <!-- PACKS & SHOP -->
+            <div id="view-packs" class="view justify-center items-center h-full text-center">
+                <span class="text-6xl mb-4 animate-bounce">🎁</span>
+                <h2 class="text-2xl font-bold mb-2">Бесплатный Набор</h2>
+                <p class="text-sm text-slate-400 mb-8">Доступен раз в час.</p>
+                <div class="bg-slate-800 p-6 rounded-2xl border border-slate-700 w-full max-w-sm relative overflow-hidden">
+                    <button onclick="rollGacha(false)" class="w-full bg-gradient-to-r from-blue-600 to-purple-600 font-bold py-3 rounded-xl text-white">Открыть (Бесплатно)</button>
+                </div>
+            </div>
+
+            <div id="view-shop" class="view justify-center items-center h-full text-center">
+                <span class="text-6xl mb-4">🛒</span>
+                <h2 class="text-2xl font-bold mb-2">Магазин</h2>
+                <div class="bg-slate-800 p-6 rounded-2xl border border-yellow-700 w-full max-w-sm relative overflow-hidden mt-8 shadow-[0_0_15px_rgba(202,138,4,0.2)]">
+                    <h3 class="font-bold text-yellow-500 mb-1">Премиум Набор</h3>
+                    <p class="text-xs text-slate-400 mb-4">Шанс на редких персонажей.</p>
+                    <button onclick="rollGacha(true)" class="w-full bg-yellow-600 hover:bg-yellow-500 font-bold py-3 rounded-xl text-white">Купить за 500 💰</button>
+                </div>
+            </div>
+
+            <!-- GACHA REVEAL -->
+            <div id="gacha-reveal" class="fixed inset-0 z-[100] hidden flex-col justify-center items-center bg-slate-900 p-4">
+                <div id="flash-effect" class="absolute inset-0 pointer-events-none z-0"></div>
+                <h2 class="text-3xl font-bold text-yellow-400 mb-8 z-10 drop-shadow-md">Новая Карта!</h2>
+                <div id="pulled-card-container" class="relative w-64 aspect-[3/4] bg-slate-800 rounded-2xl border-4 border-yellow-500 overflow-hidden z-10 flex flex-col justify-end p-4">
+                    <img id="pulled-card-img" src="" class="absolute inset-0 w-full h-full object-cover opacity-80" onerror="this.src='assets/images/characters/daniel-park.jpg'">
+                    <div class="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-slate-900 to-transparent"></div>
+                    <div class="relative z-20 text-center">
+                        <h3 id="pulled-card-name" class="text-2xl font-extrabold text-white">Name</h3>
+                        <p id="pulled-card-faction" class="text-sm text-yellow-400 font-bold">Faction</p>
+                    </div>
+                </div>
+                <p id="pulled-card-status" class="mt-6 text-slate-300 font-bold z-10 bg-slate-800 px-4 py-2 rounded-full border border-slate-700"></p>
+                <button onclick="closeGachaReveal()" class="mt-8 bg-slate-700 hover:bg-slate-600 px-8 py-3 rounded-xl font-bold text-white z-10">Отлично!</button>
+            </div>
+
+            <!-- CHARACTER DETAIL -->
+            <div id="view-character-detail" class="view pb-6"></div>
+
+            <!-- BATTLE ARENA (3v3) -->
+            <div id="view-battle" class="view h-full">
+                <!-- Top: Enemies -->
+                <div class="flex justify-around items-end h-32 mb-2" id="battle-enemies-container"></div>
+                
+                <!-- Middle: Combat Log -->
+                <div class="flex-1 bg-slate-900/80 border border-slate-700 rounded-lg p-2 overflow-y-auto text-xs font-mono mb-2" id="combat-log">
+                    <div class="text-slate-500">Бой начинается...</div>
+                </div>
+
+                <!-- Bottom: Player Squad -->
+                <div class="flex justify-around items-start h-32 mb-4" id="battle-players-container"></div>
+
+                <!-- Dev Buttons -->
+                <div class="flex space-x-2 mb-2">
+                    <button onclick="skipBattle()" class="flex-1 bg-slate-700/50 hover:bg-slate-700 text-slate-400 text-xs py-1 rounded-lg" id="btn-skip">Пропуск боя (Dev)</button>
+                    <button onclick="triggerUIDanielCheat()" class="flex-1 bg-purple-700/50 hover:bg-purple-700 text-purple-300 text-xs py-1 rounded-lg" id="btn-ui-cheat">Убить Daniel (UI Dev)</button>
+                </div>
+
+                <!-- Action Menu -->
+                <div id="battle-actions" class="bg-slate-800 p-3 rounded-xl border border-slate-700 hidden">
+                    <div class="text-center text-sm font-bold text-white mb-2" id="action-hero-name">Ходит: Hero</div>
+                    <div class="text-xs text-yellow-400 text-center mb-2 animate-pulse">Выберите цель (клик по врагу), затем действие:</div>
+                    <div class="flex space-x-2">
+                        <button onclick="executeAction('attack')" class="flex-1 bg-red-600 hover:bg-red-500 rounded-lg py-2 font-bold text-sm shadow-md" id="btn-attack">⚔️ Атака</button>
+                        <button onclick="executeAction('skill')" class="flex-1 bg-blue-600 hover:bg-blue-500 rounded-lg py-2 font-bold text-sm shadow-md has-tooltip" id="btn-skill">
+                            🔥 Навык
+                            <span class="tooltip" id="action-skill-desc">Описание скилла</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="battle-end-actions" class="hidden flex-col space-y-2 mt-4">
+                    <button onclick="exitBattle('campaign')" class="w-full bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-bold text-white shadow-md">К Кампании</button>
+                    <button onclick="exitBattle('main-menu')" class="w-full bg-slate-700 hover:bg-slate-600 py-3 rounded-xl font-bold text-white">В Главное Меню</button>
+                </div>
+            </div>
+
+            <!-- PROFILE -->
+            <div id="view-profile" class="view space-y-4">
+                <!-- Auth Form (shown when not logged in) -->
+                <div id="profile-auth" class="hidden">
+                    <div class="text-center mb-6">
+                        <span class="text-5xl">🔐</span>
+                        <h2 class="text-xl font-bold text-white mt-3">Авторизация</h2>
+                        <p class="text-xs text-slate-400 mt-1">Войдите или создайте аккаунт для сохранения прогресса</p>
+                    </div>
+                    <div class="space-y-3 mb-4">
+                        <input id="auth-username" type="text" placeholder="Имя пользователя" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+                        <input id="auth-password" type="password" placeholder="Пароль" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+                    </div>
+                    <p id="auth-error" class="text-red-400 text-xs text-center mb-3 hidden"></p>
+                    <div class="flex space-x-3">
+                        <button onclick="loginUser()" class="flex-1 bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-bold text-white text-sm transition shadow-md">Войти</button>
+                        <button onclick="registerUser()" class="flex-1 bg-slate-700 hover:bg-slate-600 py-3 rounded-xl font-bold text-white text-sm transition border border-slate-600">Регистрация</button>
+                    </div>
+                </div>
+                <!-- Profile Dashboard (shown when logged in) -->
+                <div id="profile-dashboard" class="hidden">
+                    <div class="text-center mb-5">
+                        <div class="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 mx-auto flex items-center justify-center text-4xl shadow-lg">👤</div>
+                        <h2 class="text-xl font-bold text-white mt-3" id="profile-name">User</h2>
+                        <p class="text-xs text-slate-400" id="profile-joined">Дата регистрации: —</p>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="bg-slate-800 rounded-lg p-3 border border-slate-700">
+                            <h3 class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">💰 Экономика</h3>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-slate-300">Монеты:</span>
+                                <span class="text-yellow-400 font-bold" id="prof-money">0</span>
+                            </div>
+                        </div>
+                        <div class="bg-slate-800 rounded-lg p-3 border border-slate-700">
+                            <h3 class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">🃏 Коллекция</h3>
+                            <div class="grid grid-cols-2 gap-2 text-sm">
+                                <div class="flex justify-between"><span class="text-slate-300">Карт:</span><span class="text-white font-bold" id="prof-cards">0</span></div>
+                                <div class="flex justify-between"><span class="text-slate-300">Макс. ур.:</span><span class="text-white font-bold" id="prof-max-lvl">0</span></div>
+                                <div class="flex justify-between"><span class="text-slate-300">Макс. ⭐️:</span><span class="text-white font-bold" id="prof-max-stars">0</span></div>
+                                <div class="flex justify-between"><span class="text-slate-300">Этапов ✅:</span><span class="text-white font-bold" id="prof-stages">0</span></div>
+                            </div>
+                        </div>
+                        <div class="bg-slate-800 rounded-lg p-3 border border-slate-700">
+                            <h3 class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">⚔️ Статистика боев</h3>
+                            <div class="grid grid-cols-3 gap-2 text-center text-sm">
+                                <div><span class="block text-2xl font-bold text-white" id="prof-battles">0</span><span class="text-[10px] text-slate-400">Всего</span></div>
+                                <div><span class="block text-2xl font-bold text-green-400" id="prof-wins">0</span><span class="text-[10px] text-slate-400">Побед</span></div>
+                                <div><span class="block text-2xl font-bold text-red-400" id="prof-losses">0</span><span class="text-[10px] text-slate-400">Поражений</span></div>
+                            </div>
+                            <div class="mt-2 w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+                                <div class="bg-green-500 h-full" id="prof-winrate-bar" style="width:0%"></div>
+                            </div>
+                            <p class="text-[10px] text-slate-400 text-center mt-1">Винрейт: <span id="prof-winrate" class="text-white font-bold">0%</span></p>
+                        </div>
+                    </div>
+                    <button onclick="logoutUser()" class="w-full mt-4 bg-red-900/50 hover:bg-red-900 border border-red-800 py-3 rounded-xl text-red-300 font-bold text-sm transition">🚪 Выйти из аккаунта</button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- BOSS SCREAMER OVERLAY -->
+        <div id="boss-screamer" class="absolute inset-0 z-[200] hidden bg-black pointer-events-none flex flex-col justify-center items-center">
+            <img id="boss-screamer-img" src="assets/images/characters/Animation_Gun_Park.jpg" class="w-full h-full object-cover">
+        </div>
+        
+        <!-- UI DANIEL SCREAMER OVERLAY -->
+        <div id="ui-daniel-screamer" class="absolute inset-0 z-[250] hidden bg-black pointer-events-none flex flex-col justify-center items-center">
+            <h2 class="absolute top-10 text-slate-400 font-extrabold text-4xl animate-pulse drop-shadow-md z-10 text-center uppercase tracking-widest">WARNING<br>BEAST AWAKENED</h2>
+            <img id="ui-daniel-screamer-img" src="assets/images/characters/ui_daniel_animation.jpg" class="w-full h-full object-cover">
+            <h3 class="absolute bottom-16 text-white font-bold text-xl drop-shadow-[0_5px_5px_rgba(0,0,0,1)] z-20 text-center px-4 italic animate-pulse">"Finally... A worthy opponent.<br>The beast is here."<br><span class="text-sm text-gray-400 font-normal">- Gun Park</span></h3>
+        </div>
+    </div>
+
+    <script>
+        // --- DATABASE ---
+        const DB = [
+            { id: 'c1', name: 'Daniel Park', faction: 'J High', hp: 430, str: 210, mana: 4, agi: 48, rea: 50, dur: 42, pow: 1.35, spd: 1.35, tech: 1.45, pass: 'Adaptation (+10% Tech)', act: 'Adapt Strike', actMult: 1.2, slug: 'daniel-park' },
+            { id: 'c2', name: 'Zack Lee', faction: 'J High', hp: 390, str: 225, mana: 2, agi: 42, rea: 44, dur: 50, pow: 1.45, spd: 1.20, tech: 1.20, pass: 'Boxing Combo', act: 'Boxing Rush', actMult: 1.5, slug: 'zack-lee' },
+            { id: 'c3', name: 'Vasco', faction: 'J High', hp: 470, str: 240, mana: 2, agi: 30, rea: 35, dur: 58, pow: 1.55, spd: 1.10, tech: 1.15, pass: 'Hero Strike', act: 'Hero Punch', actMult: 1.8, slug: 'vasco' },
+            { id: 'c4', name: 'Jay Hong', faction: 'J High', hp: 360, str: 190, mana: 5, agi: 55, rea: 48, dur: 35, pow: 1.20, spd: 1.50, tech: 1.40, pass: 'Weapon Mastery', act: 'Weapon Combo', actMult: 1.3, slug: 'jay-hong' },
+            { id: 'c5', name: 'Vin Jin', faction: 'Allied', hp: 440, str: 250, mana: 2, agi: 38, rea: 42, dur: 45, pow: 1.60, spd: 1.20, tech: 1.25, pass: 'Brutal Grip', act: 'Grapple Break', actMult: 1.6, slug: 'vin-jin' },
+            { id: 'c6', name: 'Johan Seong', faction: 'God Dog', hp: 420, str: 260, mana: 4, agi: 60, rea: 58, dur: 34, pow: 1.45, spd: 1.55, tech: 1.60, pass: 'Copy Talent', act: 'Copy Move', actMult: 1.4, slug: 'johan-seong' },
+            { id: 'c7', name: 'Jake Kim', faction: 'Big Deal', hp: 500, str: 245, mana: 3, agi: 36, rea: 45, dur: 60, pow: 1.55, spd: 1.15, tech: 1.30, pass: 'Leader Spirit', act: 'Big Deal Command', actMult: 1.5, slug: 'jake-kim' },
+            { id: 'c8', name: 'Samuel Seo', faction: 'Big Deal', hp: 480, str: 270, mana: 3, agi: 40, rea: 50, dur: 55, pow: 1.65, spd: 1.20, tech: 1.25, pass: 'Crazy Mode', act: 'Crazy Mode Hit', actMult: 1.7, slug: 'samuel-seo' },
+            { id: 'c9', name: 'Eli Jang', faction: 'Hostel', hp: 460, str: 255, mana: 3, agi: 52, rea: 50, dur: 48, pow: 1.50, spd: 1.40, tech: 1.35, pass: 'Wild Instinct', act: 'Wild Hunt', actMult: 1.4, slug: 'eli-jang' },
+            { id: 'c10', name: 'Warren Chae', faction: 'Hostel', hp: 430, str: 235, mana: 2, agi: 40, rea: 42, dur: 52, pow: 1.45, spd: 1.20, tech: 1.20, pass: 'Protective Guard', act: 'Guard Counter', actMult: 1.3, slug: 'warren-chae' },
+            { id: 'c11', name: 'Jerry Kwon', faction: 'Big Deal', hp: 560, str: 275, mana: 1, agi: 28, rea: 35, dur: 65, pow: 1.70, spd: 1.00, tech: 1.05, pass: 'Iron Wall', act: 'Heavy Smash', actMult: 2.0, slug: 'jerry-kwon' },
+            { id: 'c12', name: 'Jason Yoon', faction: 'Big Deal', hp: 320, str: 180, mana: 2, agi: 55, rea: 48, dur: 32, pow: 1.15, spd: 1.50, tech: 1.25, pass: 'Fast Kick', act: 'Fast Kick', actMult: 1.2, slug: 'jason-yoon' },
+            { id: 'c13', name: 'Jace Park', faction: 'Burn Knuckles', hp: 340, str: 160, mana: 4, agi: 38, rea: 42, dur: 38, pow: 1.05, spd: 1.20, tech: 1.45, pass: 'Tactical Mind', act: 'Tactical Plan', actMult: 1.5, slug: 'jace-park' },
+            { id: 'c14', name: 'Duke Pyeon', faction: 'J High', hp: 300, str: 140, mana: 5, agi: 30, rea: 35, dur: 34, pow: 1.00, spd: 1.10, tech: 1.35, pass: 'Motivation', act: 'Motivation Song', actMult: 1.0, slug: 'duke-pyeon' },
+            { id: 'c15', name: 'Jiho Park', faction: 'None', hp: 280, str: 150, mana: 3, agi: 36, rea: 40, dur: 30, pow: 1.10, spd: 1.15, tech: 1.20, pass: 'Dirty Trick', act: 'Dirty Strike', actMult: 1.3, slug: 'jiho-park' },
+            { id: 'c16', name: 'Uninterested Gun Park', faction: 'Boss', hp: 2500, str: 500, mana: 5, agi: 70, rea: 75, dur: 80, pow: 2.0, spd: 1.8, tech: 2.0, pass: 'Intimidating Aura', act: 'Casual Strike', actMult: 1.5, slug: 'UnSerious_Gun_Park', isBoss: true },
+            { id: 'c17', name: 'Serious Gun Park', faction: 'Boss', hp: 4000, str: 800, mana: 99, agi: 90, rea: 95, dur: 90, pow: 3.0, spd: 2.5, tech: 3.0, pass: 'Shiro Oni', act: 'Oni Annihilation', actMult: 2.5, slug: 'Serious_Gun_Park', isBoss: true }, // Phase 2
+            { id: 'c18', name: 'UI Daniel', faction: 'Rogue', hp: 3000, str: 700, mana: 5, agi: 95, rea: 99, dur: 85, pow: 3.5, spd: 3.0, tech: 4.0, pass: 'Inside Beast', act: 'Perfect Strike', actMult: 2.0, slug: 'ui_daniel', isBoss: true }
+        ];
+
+        // 3v3 CAMPAIGN STAGES
+        const STAGES = [
+            { num: 1, name: 'Улицы: Мелкие хулиганы', enemies: [{id:'c15', lvl:3, star:0}, {id:'c14', lvl:2, star:0}, {id:'c12', lvl:3, star:0}] },
+            { num: 2, name: 'Улицы: Власть силы', enemies: [{id:'c13', lvl:6, star:1}, {id:'c15', lvl:5, star:1}, {id:'c3', lvl:6, star:0}] },
+            { num: 3, name: 'Банды: Big Deal', enemies: [{id:'c7', lvl:10, star:1}, {id:'c11', lvl:10, star:2}, {id:'c12', lvl:10, star:1}] },
+            { num: 4, name: 'Банды: Hostel', enemies: [{id:'c9', lvl:15, star:2}, {id:'c10', lvl:15, star:2}, {id:'c8', lvl:15, star:1}] },
+            { num: 5, name: 'Босс: Gun Park', isBoss: true, enemies: [{id:'c16', lvl:25, star:5}] }
+        ];
+
+        // STATE
+        let currentUser = null; // null = guest
+        const DEFAULT_STATE = {
+            money: 1000,
+            collection: [
+                { uid: 'u1', templateId: 'c1', level: 12, mergeStars: 0 },
+                { uid: 'u2', templateId: 'c7', level: 8, mergeStars: 2 },
+                { uid: 'u3', templateId: 'c8', level: 9, mergeStars: 0 },
+                { uid: 'u4', templateId: 'c11', level: 6, mergeStars: 0 }
+            ],
+            squad: ['u1', 'u3', 'u4'],
+            completedStages: [],
+            stats: { battles: 0, wins: 0, losses: 0 }
+        };
+        let state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+        
+        function loadState() {
+            if (currentUser) {
+                const saved = localStorage.getItem('lookism_user_' + currentUser);
+                if (saved) { state = JSON.parse(saved); if(!state.stats) state.stats = {battles:0,wins:0,losses:0}; }
+            } else {
+                const saved = localStorage.getItem('lookism_save');
+                if (saved) { state = JSON.parse(saved); if(!state.stats) state.stats = {battles:0,wins:0,losses:0}; }
+            }
+        }
+        function saveState() {
+            if (currentUser) {
+                localStorage.setItem('lookism_user_' + currentUser, JSON.stringify(state));
+            } else {
+                localStorage.setItem('lookism_save', JSON.stringify(state));
+            }
+        }
+        // Try auto-login
+        const lastUser = localStorage.getItem('lookism_last_user');
+        if (lastUser) {
+            const usersDB = JSON.parse(localStorage.getItem('lookism_users') || '{}');
+            if (usersDB[lastUser]) {
+                currentUser = lastUser;
+            }
+        }
+        loadState(); // Auto-load on boot
+        let viewHistory = ['main-menu'];
+        let selectingSlotIndex = -1;
+
+        // BATTLE STATE
+        let battle = { active: false, isPaused: false, units: [], turnIndex: 0, targetId: null, phase2Triggered: false, stageNum: 0 };
+
+        // --- HELPERS ---
+        function calcStats(tId, lvl, stars) {
+            const t = DB.find(x => x.id === tId);
+            const mult = (1.0 + ((lvl - 1) * 0.03)) * (1.0 + (stars * 0.05));
+            return {
+                hp: Math.round(t.hp * mult), maxHp: Math.round(t.hp * mult),
+                str: Math.round(t.str * mult),
+                agi: t.agi * mult, rea: t.rea * mult, dur: t.dur * mult,
+                mana: t.mana, maxMana: t.mana
+            };
+        }
+        function getImagePath(slug) { return `assets/images/characters/${slug}.jpg`; }
+
+        // --- NAVIGATION ---
+        function navigate(viewId) {
+            if (viewId === 'main-menu') viewHistory = ['main-menu'];
+            else viewHistory.push(viewId);
+            renderView(viewId);
+        }
+        function navigateBack() {
+            if(battle.active) return; // Cant go back in battle
+            if (viewHistory.length > 1) { viewHistory.pop(); renderView(viewHistory[viewHistory.length - 1]); }
+        }
+        function renderView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById('view-' + viewId).classList.add('active');
+            
+            const titles = { 'main-menu': '', 'profile': 'Профиль', 'squad': 'Управление Отрядом', 'packs': 'Наборы', 'shop': 'Магазин', 'campaign': 'Кампания', 'collection': 'Моя Коллекция', 'character-detail': 'Характеристики', 'squad-select': 'Выбор Бойца', 'battle': 'Битва 3v3' };
+            const header = document.getElementById('nav-header');
+            if (viewId === 'main-menu') { header.classList.add('hidden'); } 
+            else { header.classList.remove('hidden'); document.getElementById('header-title').textContent = titles[viewId]; }
+            
+            document.getElementById('money-display').textContent = state.money;
+            document.getElementById('scroll-container').scrollTop = 0;
+
+            if(viewId === 'collection') renderCollection();
+            if(viewId === 'squad') renderSquad();
+            if(viewId === 'campaign') renderCampaign();
+            if(viewId === 'profile') renderProfile();
+            
+            // Lock back button in battle
+            document.getElementById('back-btn').style.display = (viewId === 'battle') ? 'none' : 'block';
+        }
+
+        // --- COLLECTION ---
+        function renderCollection() {
+            const container = document.getElementById('view-collection');
+            container.innerHTML = '';
+            state.collection.forEach(card => {
+                const t = DB.find(x => x.id === card.templateId);
+                const s = calcStats(t.id, card.level, card.mergeStars);
+                container.innerHTML += `
+                <div onclick="openCharacterDetail('${card.uid}')" class="bg-slate-800 rounded-xl p-3 border border-slate-700 flex items-center space-x-4 cursor-pointer hover:bg-slate-700 transition">
+                    <div class="w-16 h-16 rounded-lg overflow-hidden bg-slate-900 border border-slate-600 relative">
+                        <img src="${getImagePath(t.slug)}" class="absolute inset-0 w-full h-full object-cover" onerror="this.src='assets/images/characters/daniel-park.jpg'">
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-bold text-white truncate">${t.name} <span class="text-yellow-400 text-xs">★${card.mergeStars}</span></h3>
+                        <div class="flex flex-wrap gap-2 mt-1 text-xs text-slate-300">
+                            <span class="bg-slate-900 px-2 py-0.5 rounded border border-slate-700">Ур. ${card.level}</span>
+                            <span class="bg-slate-900 px-2 py-0.5 rounded border border-slate-700 text-red-400">❤️ ${s.hp}</span>
+                            <span class="bg-slate-900 px-2 py-0.5 rounded border border-slate-700 text-orange-400">💪 ${s.str}</span>
+                        </div>
+                    </div>
+                </div>`;
+            });
+        }
+
+        // --- CHARACTER DETAIL ---
+        function openCharacterDetail(uid) {
+            const card = state.collection.find(c => c.uid === uid);
+            const t = DB.find(x => x.id === card.templateId);
+            const s = calcStats(t.id, card.level, card.mergeStars);
+            
+            document.getElementById('view-character-detail').innerHTML = `
+                <div class="relative w-full aspect-square rounded-2xl overflow-hidden bg-slate-800 border-2 border-slate-700 shadow-lg mb-4 flex justify-center items-center">
+                    <img src="assets/images/backgrounds/bg-placeholder.jpg" class="absolute inset-0 w-full h-full object-cover opacity-50 blur-sm">
+                    <img src="${getImagePath(t.slug)}" class="absolute inset-0 w-full h-full object-contain z-10" onerror="this.src='assets/images/characters/daniel-park.jpg'">
+                    <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-slate-900 via-slate-900/80 to-transparent p-4 pt-16 z-20">
+                        <h2 class="text-3xl font-extrabold text-white leading-tight drop-shadow-md">${t.name} <span class="text-yellow-400 text-xl">★${card.mergeStars}</span></h2>
+                        <p class="text-blue-400 font-medium text-sm mt-1">${t.faction}</p>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 rounded-xl p-4 border border-slate-700 mb-4 shadow-md">
+                    <div class="grid grid-cols-2 gap-y-4 gap-x-2 text-sm">
+                        <div class="flex justify-between items-center border-b border-slate-700 pb-2">
+                            <span class="text-slate-400">Уровень</span><span class="font-bold text-white bg-slate-700 px-2 py-0.5 rounded">${card.level} / 60</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-slate-700 pb-2 has-tooltip">
+                            <span class="text-slate-400">HP</span><span class="font-bold text-red-400">❤️ ${s.hp}</span>
+                            <span class="tooltip">Здоровье. Достигнет 0 - персонаж умрет.</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-slate-700 pb-2 has-tooltip">
+                            <span class="text-slate-400">STR</span><span class="font-bold text-orange-400">💪 ${s.str}</span>
+                            <span class="tooltip">Сила. Влияет на базовый урон.</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-slate-700 pb-2 has-tooltip">
+                            <span class="text-slate-400">Мана</span><span class="font-bold text-blue-400">🔮 ${t.mana}</span>
+                            <span class="tooltip">Мана нужна для применения активного скилла.</span>
+                        </div>
+                        <div class="flex justify-between items-center border-b border-slate-700 pb-2 has-tooltip">
+                            <span class="text-slate-400">Ловкость</span><span class="font-bold text-green-400">🏃 ${s.agi.toFixed(1)}%</span>
+                            <span class="tooltip">Влияет на шанс уворота (Уворот = Ловкость / Скор. врага).</span>
+                        </div>
+                        <div class="flex justify-between items-center has-tooltip">
+                            <span class="text-slate-400">Реакция</span><span class="font-bold text-purple-400">⚡ ${s.rea.toFixed(1)}%</span>
+                            <span class="tooltip">Влияет на шанс контратаки.</span>
+                        </div>
+                        <div class="flex justify-between items-center has-tooltip">
+                            <span class="text-slate-400">Прочность</span><span class="font-bold text-slate-300">🛡️ ${s.dur.toFixed(1)}%</span>
+                            <span class="tooltip">Снижает получаемый урон при блоке.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <h3 class="font-bold text-slate-300 uppercase tracking-wider text-xs ml-1">Способности</h3>
+                    ${t.id === 'c1' ? `
+                    <div class="bg-red-900/30 rounded-xl p-4 border border-red-800 relative overflow-hidden shadow-sm mb-2 animate-pulse">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-red-600"></div>
+                        <h4 class="font-bold text-red-400 text-sm mb-1">Скрытая Сила: Внутренний Зверь</h4>
+                        <p class="text-[10px] text-red-300">При получении смертельного урона в бою есть шанс 0.01% пробудить Ультра Инстинкт. Зверь становится неконтролируемым и атакует всех без разбору.</p>
+                    </div>` : ''}
+                    <div class="bg-slate-800 rounded-xl p-4 border border-slate-700 relative overflow-hidden shadow-sm has-tooltip">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></div>
+                        <h4 class="font-bold text-white text-sm mb-1">${t.pass} (Пассивная)</h4>
+                        <span class="tooltip">Действует постоянно в бою.</span>
+                    </div>
+                    <div class="bg-slate-800 rounded-xl p-4 border border-slate-700 relative overflow-hidden shadow-sm has-tooltip">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-orange-500"></div>
+                        <h4 class="font-bold text-white text-sm mb-1">${t.act} (Активная)</h4>
+                        <p class="text-xs text-slate-400">Множитель урона: ${t.actMult}x</p>
+                        <span class="tooltip">Применяется вместо атаки, потребляет 1-3 🔮.</span>
+                    </div>
+                </div>`;
+            navigate('character-detail');
+        }
+
+        // --- SQUAD ---
+        function renderSquad() {
+            const container = document.getElementById('squad-list');
+            container.innerHTML = '';
+            let factions = {};
+            let slotNames = [];
+            
+            // --- SLOT CARDS ---
+            for(let i=0; i<3; i++) {
+                const uid = state.squad[i];
+                if (uid) {
+                    const card = state.collection.find(c => c.uid === uid);
+                    const t = DB.find(x => x.id === card.templateId);
+                    const s = calcStats(t.id, card.level, card.mergeStars);
+                    factions[t.faction] = (factions[t.faction] || 0) + 1;
+                    slotNames.push(t.name);
+                    
+                    container.innerHTML += `
+                    <div class="bg-slate-800 rounded-lg p-3 mb-4 border border-slate-700">
+                        <div class="text-sm font-bold text-white mb-2">Слот ${i+1}: ${t.name} ур.${card.level} ⭐️${card.mergeStars}</div>
+                        <div class="text-xs text-slate-400 mb-1">⚡ Энергия: 40/40 <span class="text-slate-500">(ресет через 24ч)</span></div>
+                        <div class="flex items-center space-x-3 text-xs text-slate-300 mb-1">
+                            <span>❤️ HP: <span class="text-white font-medium">${s.hp}</span></span>
+                            <span class="text-slate-600">|</span>
+                            <span>💪 Сила: <span class="text-white font-medium">${s.str}</span></span>
+                            <span class="text-slate-600">|</span>
+                            <span>🔮 Мана: <span class="text-white font-medium">${t.mana}</span></span>
+                        </div>
+                        <div class="flex items-center space-x-3 text-xs text-slate-300 mb-1">
+                            <span>🏃 Ловк: <span class="text-white font-medium">${s.agi.toFixed(1)}%</span></span>
+                            <span class="text-slate-600">|</span>
+                            <span>⚡ Реак: <span class="text-white font-medium">${s.rea.toFixed(1)}%</span></span>
+                            <span class="text-slate-600">|</span>
+                            <span>🛡 Прочн: <span class="text-white font-medium">${s.dur.toFixed(1)}%</span></span>
+                        </div>
+                        <div class="flex items-center space-x-3 text-xs text-slate-300">
+                            <span>⚔️ Пор.Силы: <span class="text-white font-medium">${t.pow.toFixed(2)}</span></span>
+                            <span class="text-slate-600">|</span>
+                            <span>🏃 Пор.Скор: <span class="text-white font-medium">${t.spd.toFixed(2)}</span></span>
+                            <span class="text-slate-600">|</span>
+                            <span>🎯 Пор.Тех: <span class="text-white font-medium">${t.tech.toFixed(2)}</span></span>
+                        </div>
+                    </div>`;
+                } else {
+                    slotNames.push(null);
+                    container.innerHTML += `
+                    <div class="bg-slate-800 rounded-lg p-3 mb-4 border border-dashed border-slate-600 text-center">
+                        <div class="text-sm font-bold text-slate-500 mb-1">Слот ${i+1}: Пусто</div>
+                        <p class="text-xs text-slate-600">Нажмите "Редактировать" ниже</p>
+                    </div>`;
+                }
+            }
+
+            // --- SYNERGY LINE ---
+            let maxFact = null, maxCnt = 0;
+            Object.keys(factions).forEach(k => { if(factions[k] > maxCnt) { maxCnt = factions[k]; maxFact = k; } });
+            document.getElementById('squad-synergy').innerHTML = maxCnt >= 2 ? `⚡ Синергии: ${maxFact} (+10% Статов) <span class="tooltip">Бонус фракции активирован!</span>` : `⚡ Синергии: Нет <span class="tooltip">2 героя из одной фракции дадут бонус.</span>`;
+
+            // --- EDIT BUTTONS ---
+            let editHtml = '<div class="mt-2 space-y-2">';
+            for(let i=0; i<3; i++) {
+                const label = slotNames[i] || 'Пусто';
+                editHtml += `<button onclick="openSquadSelect(${i})" class="w-full bg-slate-700 hover:bg-slate-600 transition rounded-md py-2 text-sm text-white font-medium border border-slate-600">Слот ${i+1}: ${label} ✏️</button>`;
+            }
+            editHtml += '</div>';
+            container.innerHTML += editHtml;
+        }
+
+        function openSquadSelect(slotIndex) {
+            selectingSlotIndex = slotIndex;
+            document.getElementById('selecting-slot-number').textContent = slotIndex + 1;
+            const container = document.getElementById('squad-select-list');
+            container.innerHTML = '';
+            state.collection.forEach(card => {
+                const t = DB.find(x => x.id === card.templateId);
+                const inSquad = state.squad.includes(card.uid);
+                container.innerHTML += `
+                <div onclick="selectForSquad('${card.uid}')" class="${inSquad ? 'opacity-50' : ''} bg-slate-800 rounded-xl p-3 border border-slate-700 flex items-center space-x-4 cursor-pointer">
+                    <div class="flex-1"><h3 class="font-bold text-white">${t.name}</h3><p class="text-xs text-slate-400">Ур.${card.level} ★${card.mergeStars}</p></div>
+                    ${inSquad ? '<span class="text-xs bg-slate-700 px-2 rounded">В отряде</span>' : '<button class="bg-blue-600 text-xs px-3 py-1 rounded">Выбрать</button>'}
+                </div>`;
+            });
+            navigate('squad-select');
+        }
+
+        function selectForSquad(uid) {
+            if (state.squad.includes(uid)) return;
+            state.squad[selectingSlotIndex] = uid;
+            saveState();
+            navigateBack();
+        }
+
+        // --- GACHA & SHOP ---
+        function rollGacha(isPremium) {
+            if (isPremium && state.money < 500) { alert("Недостаточно денег!"); return; }
+            if (isPremium) state.money -= 500;
+            document.getElementById('money-display').textContent = state.money;
+
+            const rollable = DB.filter(x => !x.isBoss);
+            const t = rollable[Math.floor(Math.random() * rollable.length)];
+            
+            const existing = state.collection.find(c => c.templateId === t.id);
+            let isDup = false;
+            if (existing) { existing.mergeStars += 1; isDup = true; } 
+            else { state.collection.push({ uid: 'u' + Date.now(), templateId: t.id, level: 1, mergeStars: 0 }); }
+
+            document.getElementById('pulled-card-name').textContent = t.name;
+            document.getElementById('pulled-card-faction').textContent = t.faction;
+            document.getElementById('pulled-card-img').src = getImagePath(t.slug);
+            document.getElementById('pulled-card-status').textContent = isDup ? "Дубликат! +1 Звезда Слияния ★" : "Новый персонаж!";
+            
+            const overlay = document.getElementById('gacha-reveal');
+            overlay.classList.remove('hidden'); overlay.classList.add('flex');
+            
+            const flash = document.getElementById('flash-effect');
+            flash.classList.remove('animate-flash'); void flash.offsetWidth; flash.classList.add('animate-flash');
+            
+            const card = document.getElementById('pulled-card-container');
+            card.classList.remove('animate-pop-in'); void card.offsetWidth; card.classList.add('animate-pop-in');
+            saveState();
+        }
+
+        function closeGachaReveal() {
+            document.getElementById('gacha-reveal').classList.add('hidden');
+            document.getElementById('gacha-reveal').classList.remove('flex');
+        }
+
+        // --- CAMPAIGN ---
+        function renderCampaign() {
+            const container = document.getElementById('campaign-list');
+            container.innerHTML = '';
+            
+            STAGES.forEach(st => {
+                const isCompleted = state.completedStages.includes(st.num);
+                const isLocked = st.num > 1 && !state.completedStages.includes(st.num - 1);
+                
+                let btnClass = isLocked ? 'bg-slate-800/50 opacity-70 cursor-not-allowed' : 'bg-slate-800 hover:bg-slate-700 cursor-pointer shadow-md';
+                let contentClass = isLocked ? 'text-slate-500' : (st.isBoss ? 'text-red-400 font-bold' : 'font-medium');
+                let badge = isLocked ? '🔒' : (isCompleted ? '<span class="bg-green-500/20 text-green-400 px-2 py-1 rounded">Пройдено</span>' : '<span class="bg-blue-600 text-white px-2 py-1 rounded">Играть</span>');
+                
+                container.innerHTML += `
+                <button onclick="${isLocked ? '' : `initBattle(${st.num})`}" class="w-full border rounded-xl p-4 flex justify-between items-center transition ${btnClass} ${st.isBoss ? 'border-red-900' : 'border-slate-700'}">
+                    <div class="flex items-center space-x-3">
+                        <span class="${isLocked ? 'bg-slate-900 text-slate-500' : (st.isBoss ? 'bg-red-900 text-red-200' : 'bg-slate-700 text-slate-300')} rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm">${st.num}</span>
+                        <span class="${contentClass}">${st.name}</span>
+                    </div>
+                    <span class="text-xs">${badge}</span>
+                </button>`;
+            });
+        }
+
+        // --- BATTLE ENGINE (3v3) ---
+        function initBattle(stageNum) {
+            if (state.squad.filter(x=>x).length === 0) { alert("Отряд пуст!"); return; }
+            battle.active = true;
+            battle.isPaused = false;
+            battle.stageNum = stageNum;
+            battle.phase2Triggered = false;
+            battle.units = [];
+            battle.turnIndex = 0;
+            document.body.classList.remove('animate-boss-phase');
+            document.getElementById('main-body').style.backgroundColor = 'black';
+            document.getElementById('battle-end-actions').classList.add('hidden');
+            document.getElementById('battle-end-actions').classList.remove('flex');
+            document.getElementById('btn-skip').classList.remove('hidden'); // Show skip button
+            document.getElementById('btn-ui-cheat').classList.remove('hidden');
+            document.getElementById('combat-log').innerHTML = '<div class="text-slate-400 text-center">- БОЙ НАЧАЛСЯ -</div>';
+
+            const stage = STAGES.find(x => x.num === stageNum);
+            
+            // Init Players
+            for(let i=0; i<3; i++) {
+                if(state.squad[i]) {
+                    const card = state.collection.find(c => c.uid === state.squad[i]);
+                    const t = DB.find(x => x.id === card.templateId);
+                    battle.units.push({ ...calcStats(t.id, card.level, card.mergeStars), templateId: t.id, id: `p${i}`, name: t.name, isPlayer: true, img: getImagePath(t.slug), dead: false, actMult: t.actMult, tech: t.tech, spd: t.spd, pow: t.pow, actName: t.act });
+                }
+            }
+            // Init Enemies
+            stage.enemies.forEach((e, i) => {
+                const t = DB.find(x => x.id === e.id);
+                battle.units.push({ ...calcStats(t.id, e.lvl, e.star), templateId: t.id, id: `e${i}`, name: t.name, isPlayer: false, img: getImagePath(t.slug), dead: false, isBoss: t.isBoss, actMult: t.actMult, tech: t.tech, spd: t.spd, pow: t.pow, actName: t.act });
+            });
+
+            // Sort by Speed for turn order (highest speed first)
+            battle.units.sort((a,b) => b.spd - a.spd);
+
+            navigate('battle');
+            renderBattleUI();
+            processTurn();
+        }
+
+        function renderBattleUI() {
+            const pCont = document.getElementById('battle-players-container');
+            const eCont = document.getElementById('battle-enemies-container');
+            pCont.innerHTML = ''; eCont.innerHTML = '';
+
+            battle.units.forEach(u => {
+                const hpPct = Math.max(0, (u.hp / u.maxHp) * 100);
+                const deadClass = u.dead ? 'grayscale opacity-30' : '';
+                const activeClass = (battle.units[battle.turnIndex].id === u.id && !u.dead) ? 'ring-2 ring-yellow-400 scale-110' : '';
+                const targetClass = u.isPlayer ? '' : `cursor-pointer hover:ring-2 hover:ring-red-500 ${battle.targetId === u.id ? 'ring-2 ring-red-500' : ''}`;
+
+                const html = `
+                <div onclick="${!u.isPlayer && !u.dead ? `setTarget('${u.id}')` : ''}" class="flex flex-col items-center w-20 transition-all ${deadClass} ${activeClass} ${targetClass}">
+                    <div class="text-[9px] font-bold text-white mb-1 truncate w-full text-center">${u.name}</div>
+                    <div id="img-container-${u.id}" class="w-12 h-12 rounded-full overflow-hidden border-2 ${u.isPlayer ? 'border-blue-500' : 'border-red-500'} bg-slate-800 mb-1">
+                        <img src="${u.img}" class="w-full h-full object-cover" onerror="this.src='assets/images/characters/daniel-park.jpg'">
+                    </div>
+                    <div class="w-full bg-slate-700 h-2 rounded-full overflow-hidden relative">
+                        <div class="bg-red-500 h-full hp-fill" style="width: ${hpPct}%"></div>
+                    </div>
+                    <div class="text-[8px] mt-0.5">${u.hp}/${u.maxHp}</div>
+                    ${u.isPlayer ? `<div class="text-[8px] text-blue-400 mt-0.5">🔮 ${u.mana}/${u.maxMana}</div>` : ''}
+                </div>`;
+
+                if (u.isPlayer) pCont.innerHTML += html;
+                else eCont.innerHTML += html;
+            });
+        }
+
+        function logCombat(msg, isBad) {
+            const log = document.getElementById('combat-log');
+            log.innerHTML += `<div class="combat-log-msg ${isBad ? 'text-red-400' : 'text-slate-300'} my-1 pb-1 border-b border-slate-800/50">> ${msg}</div>`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function setTarget(id) {
+            battle.targetId = id;
+            renderBattleUI();
+        }
+
+        function processTurn() {
+            if(!battle.active || battle.isPaused) return;
+            const u = battle.units[battle.turnIndex];
+            
+            if (u.dead) { nextTurn(); return; }
+
+            // Check Win/Loss
+            const teamPlayer = battle.units.filter(x => x.isPlayer && !x.dead);
+            const teamEnemy = battle.units.filter(x => !x.isPlayer && !x.dead);
+            
+            if (teamPlayer.length === 0) { 
+                logCombat("Ваш отряд пал. Вы проиграли...", true); 
+                state.stats.battles++; state.stats.losses++; saveState();
+                endSequence(); return; 
+            }
+            if (teamEnemy.length === 0) { 
+                if (battle.stageNum === 5 && !battle.phase2Triggered) { triggerBossPhase2(); return; }
+                logCombat("Победа! Вы выиграли бой!", false); 
+                state.money += 500;
+                state.stats.battles++; state.stats.wins++;
+                if (!state.completedStages.includes(battle.stageNum)) state.completedStages.push(battle.stageNum);
+                saveState();
+                endSequence(); return; 
+            }
+
+            if (u.isPlayer) {
+                // Wait for user input
+                document.getElementById('battle-actions').classList.remove('hidden');
+                document.getElementById('action-hero-name').textContent = `Ходит: ${u.name}`;
+                document.getElementById('action-skill-desc').textContent = `${u.actName} (Множитель: ${u.actMult}x)`;
+                
+                // Auto select first alive enemy
+                const tgt = battle.units.find(x => x.id === battle.targetId);
+                if (!tgt || tgt.dead) { 
+                    battle.targetId = teamEnemy[0].id; 
+                }
+                renderBattleUI();
+            } else {
+                // Enemy AI: Attacks player
+                document.getElementById('battle-actions').classList.add('hidden');
+                setTimeout(() => {
+                    const tgt = teamPlayer[Math.floor(Math.random() * teamPlayer.length)];
+                    const hijacked = executeMath(u, tgt, false);
+                    if (!hijacked) nextTurn();
+                }, 1000);
+            }
+        }
+
+        function executeAction(type) {
+            const u = battle.units[battle.turnIndex];
+            const tgt = battle.units.find(x => x.id === battle.targetId);
+            if (!tgt || tgt.dead) { alert("Выберите живую цель!"); return; }
+
+            document.getElementById('battle-actions').classList.add('hidden');
+            
+            if (type === 'skill') {
+                if (u.mana < 1) { logCombat(`${u.name} не имеет маны! Использует обычную атаку.`); type = 'attack'; }
+                else { u.mana -= 1; }
+            }
+            
+            const hijacked = executeMath(u, tgt, type === 'skill');
+            if (!hijacked) nextTurn();
+        }
+
+        function executeMath(atk, def, isSkill) {
+            // Dodge Chance = Agility / Enemy Speed
+            const dodgeChance = (def.agi / 100) / atk.spd; 
+            if (Math.random() < dodgeChance) {
+                logCombat(`${def.name} УВЕРНУЛСЯ от атаки ${atk.name}!`, !def.isPlayer);
+                
+                // Counter attack chance based on Reaction vs Enemy Agility
+                const counterChance = (def.rea / 100) / atk.agi;
+                if (Math.random() < counterChance) {
+                    const counterDmg = Math.max(1, Math.round((def.str * def.actMult * 0.5) - (atk.dur * 0.5)));
+                    atk.hp -= counterDmg;
+                    if(atk.hp < 0) atk.hp = 0;
+                    logCombat(`⚡ КОНТРАТАКА! ${def.name} наносит ${counterDmg} урона!`, def.isPlayer);
+                    if (atk.hp === 0) {
+                        atk.dead = true;
+                        logCombat(`💀 ${atk.name} ПОГИБ ОТ КОНТРАТАКИ!`, atk.isPlayer);
+                        if (atk.templateId === 'c1' && atk.isPlayer && Math.random() < 0.0001) {
+                            const idx = battle.units.findIndex(x => x.id === atk.id);
+                            triggerUIDaniel(idx);
+                            return true; // Hijack execution for Daniel
+                        }
+                    }
+                }
+                return false;
+            }
+
+            let dmg = atk.str;
+            let actionText = "атакует";
+            if (isSkill) {
+                // Skill Dmg = STR * Mult * Tech
+                dmg = Math.round(atk.str * atk.actMult * atk.tech);
+                actionText = `использует навык [${atk.actName}] на`;
+            }
+
+            // Block = (HP * (Durability/100) / Enemy Power) - Enemy STR
+            let blockAmt = (def.hp * (def.dur / 100) / atk.pow) - atk.str;
+            if (blockAmt > 0) {
+                dmg -= blockAmt;
+            }
+            dmg = Math.max(1, Math.round(dmg));
+
+            def.hp -= dmg;
+            if (def.hp < 0) def.hp = 0;
+            
+            logCombat(`${atk.name} ${actionText} ${def.name}, нанося ${dmg} урона!`, def.isPlayer);
+            
+            if (blockAmt > 0 && dmg > 0) logCombat(`БЛОК: ${def.name} поглотил часть урона.`, !def.isPlayer);
+
+            if (def.hp === 0) {
+                def.dead = true;
+                logCombat(`💀 ${def.name} ПОГИБ!`, def.isPlayer);
+                
+                // UI Daniel Trigger Logic
+                if (def.templateId === 'c1' && def.isPlayer && Math.random() < 0.0001) {
+                    const idx = battle.units.findIndex(x => x.id === def.id);
+                    triggerUIDaniel(idx);
+                    return true;
+                }
+            }
+            
+            renderBattleUI();
+            return false;
+        }
+
+        function nextTurn() {
+            battle.turnIndex = (battle.turnIndex + 1) % battle.units.length;
+            renderBattleUI();
+            setTimeout(processTurn, 500);
+        }
+
+        function triggerBossPhase2() {
+            battle.phase2Triggered = true;
+            document.body.classList.add('animate-boss-phase');
+            document.getElementById('main-body').style.backgroundColor = '#450a0a'; // Dark Red
+            
+            // Play Laugh Audio for 4.5 seconds
+            let laughAudio = new Audio('assets/audio/madara-laugh.mp3');
+            laughAudio.play().catch(e => console.log("Audio playback blocked by browser"));
+            
+            logCombat("=======================", true);
+            logCombat("Gun Park снимает очки... Аура меняется!", true);
+            logCombat("СЕРЬЕЗНЫЙ GUN PARK ВСТУПАЕТ В БОЙ!", true);
+            logCombat("=======================", true);
+
+            const t = DB.find(x => x.id === 'c17');
+            const gunIdx = battle.units.findIndex(x => x.templateId === 'c16');
+            
+            // Show Screamer Overlay
+            const screamer = document.getElementById('boss-screamer');
+            const screamerImg = document.getElementById('boss-screamer-img');
+            screamer.classList.remove('hidden');
+            screamerImg.classList.add('animate-screamer');
+            
+            // Let it rage and laugh for 4.5 seconds
+            setTimeout(() => {
+                laughAudio.pause();
+                
+                // Hide Screamer
+                screamer.classList.add('hidden');
+                screamerImg.classList.remove('animate-screamer');
+                
+                // Stop the extreme screen shake, keep it intense red
+                document.body.classList.remove('animate-boss-phase');
+                
+                // Fully swap to Phase 2 stats and image
+                battle.units[gunIdx] = { ...calcStats(t.id, 25, 5), templateId: t.id, id: `e${gunIdx}`, name: t.name, isPlayer: false, img: getImagePath(t.slug), dead: false, isBoss: true, actMult: t.actMult, tech: t.tech, spd: t.spd, pow: t.pow, actName: t.act };
+                renderBattleUI();
+                processTurn();
+            }, 4500);
+        }
+
+        function endSequence() {
+            document.getElementById('battle-actions').classList.add('hidden');
+            document.getElementById('btn-skip').classList.add('hidden');
+            document.getElementById('btn-ui-cheat').classList.add('hidden');
+            document.getElementById('battle-end-actions').classList.remove('hidden');
+            document.getElementById('battle-end-actions').classList.add('flex');
+            battle.active = false;
+        }
+
+        function triggerUIDaniel(danielIdx) {
+            battle.isPaused = true;
+            document.getElementById('battle-actions').classList.add('hidden');
+            
+            logCombat("=======================", true);
+            logCombat("WARNING: BEAST AWAKENED", true);
+            logCombat("DANIEL PARK ПЕРЕШЕЛ В РЕЖИМ УЛЬТРА ИНСТИНКТА!", true);
+            logCombat("=======================", true);
+
+            const uiScreamer = document.getElementById('ui-daniel-screamer');
+            const uiScreamerImg = document.getElementById('ui-daniel-screamer-img');
+            uiScreamer.classList.remove('hidden');
+            uiScreamer.classList.add('flex');
+            uiScreamerImg.classList.add('animate-ui-screamer');
+            
+            let audio = new Audio('assets/audio/Steel_Nerve.mp3');
+            audio.currentTime = 56;
+            audio.play().catch(e => console.log(e));
+
+            // Check if Gun is alive
+            const gun = battle.units.find(x => (x.templateId === 'c16' || x.templateId === 'c17') && !x.dead);
+            if (gun) {
+                logCombat("Gun Park: \"Finally, you arrived, beast.\"", false);
+            }
+
+            setTimeout(() => {
+                audio.pause();
+                uiScreamer.classList.add('hidden');
+                uiScreamer.classList.remove('flex');
+                uiScreamerImg.classList.remove('animate-ui-screamer');
+                
+                const t = DB.find(x => x.id === 'c18');
+                
+                // The Betrayal
+                battle.units.forEach(u => {
+                    if (u.isPlayer && u.id !== battle.units[danielIdx].id) {
+                        u.isPlayer = false;
+                        logCombat(`${u.name} стал врагом! Зверь не пощадит никого.`, true);
+                    }
+                });
+                
+                // Daniel revives as Player UI Daniel
+                battle.units[danielIdx] = { ...calcStats(t.id, 25, 5), templateId: t.id, id: battle.units[danielIdx].id, name: t.name, isPlayer: true, img: getImagePath(t.slug), dead: false, isBoss: true, actMult: t.actMult, tech: t.tech, spd: t.spd, pow: t.pow, actName: t.act };
+                
+                battle.isPaused = false;
+                renderBattleUI();
+                processTurn();
+            }, 11000);
+        }
+
+        function triggerUIDanielCheat() {
+            if(!battle.active) return;
+            const danielIdx = battle.units.findIndex(x => x.templateId === 'c1' && x.isPlayer && !x.dead);
+            if (danielIdx === -1) { alert("В бою нет живого Daniel Park!"); return; }
+            battle.units[danielIdx].hp = 0;
+            battle.units[danielIdx].dead = true;
+            renderBattleUI();
+            triggerUIDaniel(danielIdx);
+        }
+
+        function exitBattle(destination) {
+            document.body.classList.remove('animate-boss-phase');
+            document.getElementById('main-body').style.backgroundColor = 'black';
+            document.getElementById('battle-end-actions').classList.add('hidden');
+            document.getElementById('battle-end-actions').classList.remove('flex');
+            document.getElementById('btn-skip').classList.remove('hidden');
+            document.getElementById('btn-ui-cheat').classList.remove('hidden');
+            navigate(destination);
+        }
+
+        function skipBattle() {
+            if(!battle.active) return;
+            logCombat("Использован пропуск боя! (DEV)", false);
+            
+            // Instantly kill all enemies
+            battle.units.filter(x => !x.isPlayer).forEach(e => { e.hp = 0; e.dead = true; });
+            
+            if (battle.stageNum === 5 && !battle.phase2Triggered) {
+                // If it's stage 5 phase 1, trigger phase 2 but DO NOT skip phase 2 automatically
+                triggerBossPhase2();
+            } else {
+                logCombat("Победа! Вы выиграли бой!", false); 
+                state.money += 500;
+                state.stats.battles++; state.stats.wins++;
+                if (!state.completedStages.includes(battle.stageNum)) state.completedStages.push(battle.stageNum);
+                saveState();
+                endSequence();
+                renderBattleUI();
+            }
+        }
+
+        // --- AUTH SYSTEM (localStorage mock for UserService proto) ---
+        function registerUser() {
+            const username = document.getElementById('auth-username').value.trim();
+            const password = document.getElementById('auth-password').value.trim();
+            const errEl = document.getElementById('auth-error');
+            errEl.classList.add('hidden');
+
+            if (!username || !password) { errEl.textContent = 'Заполните все поля!'; errEl.classList.remove('hidden'); return; }
+            if (username.length < 3) { errEl.textContent = 'Имя минимум 3 символа!'; errEl.classList.remove('hidden'); return; }
+            if (password.length < 4) { errEl.textContent = 'Пароль минимум 4 символа!'; errEl.classList.remove('hidden'); return; }
+
+            const usersDB = JSON.parse(localStorage.getItem('lookism_users') || '{}');
+            if (usersDB[username]) { errEl.textContent = 'Пользователь уже существует!'; errEl.classList.remove('hidden'); return; }
+
+            usersDB[username] = { password: password, createdAt: Date.now() };
+            localStorage.setItem('lookism_users', JSON.stringify(usersDB));
+
+            currentUser = username;
+            localStorage.setItem('lookism_last_user', username);
+            // Create fresh state for new user
+            state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+            saveState();
+            renderProfile();
+        }
+
+        function loginUser() {
+            const username = document.getElementById('auth-username').value.trim();
+            const password = document.getElementById('auth-password').value.trim();
+            const errEl = document.getElementById('auth-error');
+            errEl.classList.add('hidden');
+
+            if (!username || !password) { errEl.textContent = 'Заполните все поля!'; errEl.classList.remove('hidden'); return; }
+
+            const usersDB = JSON.parse(localStorage.getItem('lookism_users') || '{}');
+            if (!usersDB[username]) { errEl.textContent = 'Пользователь не найден!'; errEl.classList.remove('hidden'); return; }
+            if (usersDB[username].password !== password) { errEl.textContent = 'Неверный пароль!'; errEl.classList.remove('hidden'); return; }
+
+            currentUser = username;
+            localStorage.setItem('lookism_last_user', username);
+            loadState();
+            renderProfile();
+        }
+
+        function logoutUser() {
+            currentUser = null;
+            localStorage.removeItem('lookism_last_user');
+            state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+            const guestSave = localStorage.getItem('lookism_save');
+            if (guestSave) state = JSON.parse(guestSave);
+            if (!state.stats) state.stats = {battles:0,wins:0,losses:0};
+            renderProfile();
+            document.getElementById('welcome-username').textContent = 'Гость';
+        }
+
+        function renderProfile() {
+            const authDiv = document.getElementById('profile-auth');
+            const dashDiv = document.getElementById('profile-dashboard');
+
+            if (currentUser) {
+                authDiv.classList.add('hidden');
+                dashDiv.classList.remove('hidden');
+
+                const usersDB = JSON.parse(localStorage.getItem('lookism_users') || '{}');
+                const userData = usersDB[currentUser];
+                const joinDate = userData ? new Date(userData.createdAt).toLocaleDateString('ru-RU') : '—';
+
+                document.getElementById('profile-name').textContent = currentUser;
+                document.getElementById('profile-joined').textContent = 'Дата регистрации: ' + joinDate;
+                document.getElementById('prof-money').textContent = state.money;
+                document.getElementById('prof-cards').textContent = state.collection.length;
+                document.getElementById('prof-max-lvl').textContent = state.collection.length > 0 ? Math.max(...state.collection.map(c => c.level)) : 0;
+                document.getElementById('prof-max-stars').textContent = state.collection.length > 0 ? Math.max(...state.collection.map(c => c.mergeStars)) : 0;
+                document.getElementById('prof-stages').textContent = state.completedStages.length;
+
+                const st = state.stats || {battles:0,wins:0,losses:0};
+                document.getElementById('prof-battles').textContent = st.battles;
+                document.getElementById('prof-wins').textContent = st.wins;
+                document.getElementById('prof-losses').textContent = st.losses;
+                const wr = st.battles > 0 ? Math.round((st.wins / st.battles) * 100) : 0;
+                document.getElementById('prof-winrate').textContent = wr + '%';
+                document.getElementById('prof-winrate-bar').style.width = wr + '%';
+
+                document.getElementById('welcome-username').textContent = currentUser;
+            } else {
+                authDiv.classList.remove('hidden');
+                dashDiv.classList.add('hidden');
+                document.getElementById('auth-error').classList.add('hidden');
+                document.getElementById('auth-username').value = '';
+                document.getElementById('auth-password').value = '';
+            }
+        }
+
+        // Set welcome name on boot
+        if (currentUser) document.getElementById('welcome-username').textContent = currentUser;
+
+    </script>
+</body>
+</html>
