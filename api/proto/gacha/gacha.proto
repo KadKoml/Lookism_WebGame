@@ -1,0 +1,150 @@
+syntax = "proto3";
+
+package gacha;
+option go_package = "github.com/kozie/lookism-rpg/api/proto/gacha";
+
+service GachaEconomyService {
+    // Gacha
+    rpc GetBanners (Empty) returns (BannerList);
+    rpc RollGachaSingle (RollRequest) returns (RollResponse);
+    rpc RollGachaMulti (RollRequest) returns (RollResponse);
+
+    // Economy & Energy
+    rpc GetEnergyState (UserRequest) returns (EnergyState);
+    rpc ConsumeEnergy (ConsumeEnergyRequest) returns (ConsumeEnergyResponse);
+    rpc AddCurrency (CurrencyRequest) returns (CurrencyResponse);
+    rpc SpendCurrency (CurrencyRequest) returns (CurrencyResponse);
+
+    // Dailies & Quests
+    rpc GetDailyRewards (UserRequest) returns (DailyRewardsList);
+    rpc ClaimDailyReward (ClaimRequest) returns (ClaimResponse);
+    rpc GetQuests (UserRequest) returns (QuestList);
+    rpc ClaimQuestReward (ClaimRequest) returns (ClaimResponse);
+
+    // Shop
+    rpc GetShopItems (Empty) returns (ShopItemList);
+    rpc ShopPurchase (PurchaseRequest) returns (PurchaseResponse);
+
+    // Pack Timers
+    rpc GetFreePackTimer (UserRequest) returns (TimerResponse);
+}
+
+message Empty {}
+
+message UserRequest {
+    string user_id = 1;
+}
+
+message BannerList {
+    repeated Banner banners = 1;
+}
+
+message Banner {
+    string id = 1;
+    string name = 2;
+    int32 cost = 3;
+}
+
+message RollRequest {
+    string user_id = 1;
+    string banner_id = 2;
+}
+
+message RollResponse {
+    repeated PulledCard cards = 1;
+    bool success = 2;
+    string message = 3;
+}
+
+message PulledCard {
+    string card_id = 1;
+    string template_id = 2;
+    string name = 3;
+    bool is_duplicate = 4;
+    int32 new_merge_stars = 5;
+}
+
+message EnergyState {
+    int32 current_energy = 1;
+    int32 max_energy = 2;
+    int64 next_refill_timestamp = 3;
+}
+
+message ConsumeEnergyRequest {
+    string user_id = 1;
+    int32 amount = 2;
+}
+
+message ConsumeEnergyResponse {
+    bool success = 1;
+    int32 remaining_energy = 2;
+}
+
+message CurrencyRequest {
+    string user_id = 1;
+    int32 amount = 2;
+}
+
+message CurrencyResponse {
+    bool success = 1;
+    int32 new_balance = 2;
+    string message = 3;
+}
+
+message DailyRewardsList {
+    repeated DailyReward rewards = 1;
+}
+
+message DailyReward {
+    string id = 1;
+    int32 day = 2;
+    string description = 3;
+    bool claimed = 4;
+}
+
+message ClaimRequest {
+    string user_id = 1;
+    string target_id = 2;
+}
+
+message ClaimResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message QuestList {
+    repeated Quest quests = 1;
+}
+
+message Quest {
+    string id = 1;
+    string description = 2;
+    bool is_completed = 3;
+    bool is_claimed = 4;
+}
+
+message ShopItemList {
+    repeated ShopItem items = 1;
+}
+
+message ShopItem {
+    string id = 1;
+    string name = 2;
+    int32 cost = 3;
+    string description = 4;
+}
+
+message PurchaseRequest {
+    string user_id = 1;
+    string item_id = 2;
+}
+
+message PurchaseResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message TimerResponse {
+    int64 remaining_seconds = 1;
+    bool is_ready = 2;
+}

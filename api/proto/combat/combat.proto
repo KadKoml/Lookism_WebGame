@@ -1,0 +1,143 @@
+syntax = "proto3";
+
+package combat;
+option go_package = "github.com/kozie/lookism-rpg/api/proto/combat";
+
+service CombatEngineService {
+    // Initialization
+    rpc InitCombatState (InitCombatRequest) returns (InitCombatResponse);
+    rpc CampaignMatchmaking (MatchmakingRequest) returns (MatchmakingResponse);
+
+    // State retrieval
+    rpc GetCombatState (CombatRequest) returns (CombatStateResponse);
+    rpc GetCombatFormulas (Empty) returns (FormulasResponse);
+
+    // Actions
+    rpc ExecuteAttack (CombatActionRequest) returns (CombatActionResponse);
+    rpc ExecuteBlock (CombatActionRequest) returns (CombatActionResponse);
+    rpc ExecuteDodge (CombatActionRequest) returns (CombatActionResponse);
+    rpc ExecuteCounter (CombatActionRequest) returns (CombatActionResponse);
+    rpc ActivateActiveSkill (SkillActionRequest) returns (CombatActionResponse);
+
+    // Turn / Mechanics
+    rpc ApplyTeamPassives (CombatRequest) returns (CombatStateResponse);
+    rpc CalculateTurnOutcome (CombatRequest) returns (TurnOutcomeResponse);
+    rpc ApplyTickEffects (CombatRequest) returns (CombatStateResponse);
+
+    // End Condition
+    rpc ForceEndCombat (CombatRequest) returns (EndCombatResponse);
+}
+
+message Empty {}
+
+message InitCombatRequest {
+    string player_id = 1;
+    repeated Character player_team = 2;
+    repeated Character enemy_team = 3;
+}
+
+message InitCombatResponse {
+    string combat_id = 1;
+    bool success = 2;
+}
+
+message MatchmakingRequest {
+    string player_id = 1;
+    int32 stage = 2;
+    repeated Character player_team = 3;
+}
+
+message MatchmakingResponse {
+    string combat_id = 1;
+    repeated Character scaled_enemy_team = 2;
+}
+
+message CombatRequest {
+    string combat_id = 1;
+}
+
+message CombatStateResponse {
+    string combat_id = 1;
+    int32 current_turn = 2;
+    repeated CharacterState player_team_state = 3;
+    repeated CharacterState enemy_team_state = 4;
+}
+
+message FormulasResponse {
+    string block_formula = 1;
+    string dodge_formula = 2;
+    string counter_formula = 3;
+    string active_skill_formula = 4;
+}
+
+message CombatActionRequest {
+    string combat_id = 1;
+    string attacker_id = 2;
+    string target_id = 3;
+}
+
+message SkillActionRequest {
+    string combat_id = 1;
+    string attacker_id = 2;
+    string target_id = 3;
+    string skill_name = 4;
+}
+
+message CombatActionResponse {
+    bool success = 1;
+    int32 damage_dealt = 2;
+    string action_log = 3;
+    bool is_critical = 4;
+    bool is_dodged = 5;
+    bool is_blocked = 6;
+    bool is_countered = 7;
+}
+
+message TurnOutcomeResponse {
+    string combat_id = 1;
+    string turn_log = 2;
+    bool combat_ended = 3;
+    string winner = 4;
+}
+
+message EndCombatResponse {
+    bool success = 1;
+    string winner = 2;
+}
+
+message Character {
+    string id = 1;
+    string template_id = 2;
+    string name = 3;
+    int32 level = 4;
+    int32 merge_stars = 5;
+    
+    // Base Stats
+    int32 hp = 6;
+    int32 str = 7;
+    int32 mana = 8;
+    int32 agility = 9;
+    int32 reaction = 10;
+    int32 durability = 11;
+    float power = 12;
+    float speed = 13;
+    float technique = 14;
+    
+    // JSON-encoded skill configs
+    string passive_skill = 15;
+    string active_skill = 16;
+}
+
+message CharacterState {
+    string id = 1;
+    int32 current_hp = 2;
+    int32 current_mana = 3;
+    repeated StatusEffect effects = 4;
+}
+
+message StatusEffect {
+    string name = 1;
+    int32 duration_turns = 2;
+    string effect_type = 3; // e.g. "buff_tech", "debuff_durability"
+    float value = 4;
+}

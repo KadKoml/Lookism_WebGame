@@ -1,0 +1,100 @@
+syntax = "proto3";
+
+package notification;
+option go_package = "github.com/kozie/lookism-rpg/api/proto/notification";
+
+service NotificationService {
+    // History
+    rpc GetNotificationHistory (UserRequest) returns (HistoryResponse);
+    rpc ClearNotificationHistory (UserRequest) returns (EmptyResponse);
+    rpc DeleteNotification (DeleteRequest) returns (EmptyResponse);
+    rpc MarkAsRead (MarkReadRequest) returns (EmptyResponse);
+
+    // Settings
+    rpc GetSettings (UserRequest) returns (SettingsResponse);
+    rpc UpdateSettings (UpdateSettingsRequest) returns (SettingsResponse);
+    rpc OptOutEmails (UserRequest) returns (EmptyResponse);
+    rpc OptInEmails (UserRequest) returns (EmptyResponse);
+
+    // Templates
+    rpc GetEmailTemplates (EmptyRequest) returns (TemplatesResponse);
+    rpc PreviewTemplate (PreviewRequest) returns (PreviewResponse);
+
+    // Manual dispatch (admin)
+    rpc SendCustomNotification (SendCustomRequest) returns (EmptyResponse);
+    rpc BroadcastNotification (BroadcastRequest) returns (EmptyResponse);
+}
+
+message EmptyRequest {}
+message EmptyResponse {
+    bool success = 1;
+}
+
+message UserRequest {
+    string user_id = 1;
+}
+
+message HistoryResponse {
+    repeated NotificationRecord records = 1;
+}
+
+message NotificationRecord {
+    string id = 1;
+    string user_id = 2;
+    string type = 3;
+    string subject = 4;
+    string body = 5;
+    bool is_read = 6;
+    int64 created_at = 7;
+}
+
+message DeleteRequest {
+    string user_id = 1;
+    string notification_id = 2;
+}
+
+message MarkReadRequest {
+    string user_id = 1;
+    string notification_id = 2;
+}
+
+message SettingsResponse {
+    bool email_enabled = 1;
+    bool push_enabled = 2;
+    bool sms_enabled = 3;
+}
+
+message UpdateSettingsRequest {
+    string user_id = 1;
+    bool email_enabled = 2;
+    bool push_enabled = 3;
+    bool sms_enabled = 4;
+}
+
+message TemplatesResponse {
+    repeated TemplateInfo templates = 1;
+}
+
+message TemplateInfo {
+    string template_id = 1;
+    string description = 2;
+}
+
+message PreviewRequest {
+    string template_id = 1;
+}
+
+message PreviewResponse {
+    string preview_html = 1;
+}
+
+message SendCustomRequest {
+    string user_id = 1;
+    string subject = 2;
+    string body = 3;
+}
+
+message BroadcastRequest {
+    string subject = 1;
+    string body = 2;
+}

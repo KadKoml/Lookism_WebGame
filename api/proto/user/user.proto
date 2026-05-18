@@ -1,0 +1,152 @@
+syntax = "proto3";
+
+package user;
+option go_package = "github.com/kozie/lookism-rpg/api/proto/user";
+
+service UserService {
+    // Auth & Profile Management
+    rpc Register (RegisterRequest) returns (AuthResponse);
+    rpc Login (LoginRequest) returns (AuthResponse);
+    rpc ValidateToken (TokenRequest) returns (TokenResponse);
+    
+    rpc GetProfile (UserRequest) returns (ProfileResponse);
+    rpc UpdateProfile (UpdateProfileRequest) returns (ProfileResponse);
+
+    // Inventory & Collection
+    rpc GetInventory (UserRequest) returns (InventoryResponse);
+    rpc AddCardToInventory (AddCardRequest) returns (CardResponse);
+
+    // Card Progression
+    rpc LevelUpCard (LevelUpRequest) returns (CardResponse);
+    rpc MergeDuplicateCard (MergeRequest) returns (CardResponse);
+    rpc GetCardStats (CardRequest) returns (CardStatsResponse);
+
+    // Squad Management
+    rpc SetActiveSquad (SquadRequest) returns (SquadResponse);
+    rpc GetActiveSquad (UserRequest) returns (SquadResponse);
+    rpc ConsumeCardEnergy (ConsumeCardEnergyRequest) returns (ConsumeCardEnergyResponse);
+}
+
+message Empty {}
+
+message UserRequest {
+    string user_id = 1;
+}
+
+message ConsumeCardEnergyRequest {
+    string user_id = 1;
+    repeated string card_ids = 2;
+}
+
+message ConsumeCardEnergyResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message RegisterRequest {
+    string username = 1;
+    string email = 2;
+    string password = 3;
+}
+
+message LoginRequest {
+    string email = 1;
+    string password = 2;
+}
+
+message AuthResponse {
+    string user_id = 1;
+    string username = 2;
+    string token = 3;
+    bool success = 4;
+}
+
+message TokenRequest {
+    string token = 1;
+}
+
+message TokenResponse {
+    bool is_valid = 1;
+    string user_id = 2;
+}
+
+message UpdateProfileRequest {
+    string user_id = 1;
+    string new_username = 2;
+}
+
+message ProfileResponse {
+    string user_id = 1;
+    string username = 2;
+    string email = 3;
+    int64 created_at = 4;
+    bool success = 5;
+}
+
+message SuccessResponse {
+    bool success = 1;
+    string message = 2;
+}
+
+message InventoryResponse {
+    repeated Card cards = 1;
+}
+
+message AddCardRequest {
+    string user_id = 1;
+    string template_id = 2;
+}
+
+message LevelUpRequest {
+    string user_id = 1;
+    string card_id = 2;
+}
+
+message MergeRequest {
+    string user_id = 1;
+    string card_id = 2;
+}
+
+message CardRequest {
+    string card_id = 1;
+}
+
+message Card {
+	string id = 1;
+	string template_id = 2;
+	int32 level = 3;
+	int32 merge_stars = 4;
+	int32 current_energy = 5;
+	int64 next_refresh_timestamp = 6;
+}
+
+message CardResponse {
+    Card card = 1;
+    bool success = 2;
+    string message = 3;
+}
+
+message CardStatsResponse {
+    string card_id = 1;
+    string name = 2;
+    int32 final_hp = 3;
+    int32 final_str = 4;
+    int32 final_mana = 5;
+    int32 final_agility = 6;
+    int32 final_reaction = 7;
+    int32 final_durability = 8;
+    float final_power = 9;
+    float final_speed = 10;
+    float final_technique = 11;
+}
+
+message SquadRequest {
+    string user_id = 1;
+    repeated string card_ids = 2;
+}
+
+message SquadResponse {
+    string user_id = 1;
+    repeated Card squad = 2;
+    bool success = 3;
+}

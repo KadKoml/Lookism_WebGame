@@ -1,0 +1,11 @@
+go 1.25.0
+
+use (
+	./api
+	./api-gateway
+	./gateway2
+	./combat-service
+	./gacha-service
+	./user-service
+	./notification-service
+)
