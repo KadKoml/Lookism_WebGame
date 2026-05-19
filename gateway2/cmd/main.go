@@ -9,8 +9,10 @@ import (
 	"strings"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	userpb "github.com/kozie/lookism-rpg/api/proto/user"
 	gachapb "github.com/kozie/lookism-rpg/api/proto/gacha"
@@ -86,7 +88,7 @@ func (g *Gateway) withAuth(handler func(http.ResponseWriter, *http.Request, cont
 	return func(w http.ResponseWriter, r *http.Request) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			writeJSONError(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 		
@@ -104,12 +106,12 @@ func (g *Gateway) withAuth(handler func(http.ResponseWriter, *http.Request, cont
 
 func (g *Gateway) handleRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		writeJSONError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	var req userpb.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeJSONError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	
@@ -119,12 +121,12 @@ func (g *Gateway) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 func (g *Gateway) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		writeJSONError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	var req userpb.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeJSONError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	
@@ -140,7 +142,7 @@ func (g *Gateway) handleGetProfile(w http.ResponseWriter, r *http.Request, ctx c
 	// For simplicity, let's just make the frontend send the user_id in the query param
 	userID := r.URL.Query().Get("user_id")
 	if userID == "" {
-		http.Error(w, "missing user_id", http.StatusBadRequest)
+		writeJSONError(w, "missing user_id", http.StatusBadRequest)
 		return
 	}
 	
@@ -150,12 +152,12 @@ func (g *Gateway) handleGetProfile(w http.ResponseWriter, r *http.Request, ctx c
 
 func (g *Gateway) handleRollGacha(w http.ResponseWriter, r *http.Request, ctx context.Context) {
 	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		writeJSONError(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	var req gachapb.RollRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeJSONError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 	
@@ -168,12 +170,39 @@ func (g *Gateway) handleFreePack(w http.ResponseWriter, r *http.Request, ctx con
 	// Stub for free pack claim
 	// Note: We need a ClaimFreePack endpoint in gacha.proto! 
 	// The rubric requires 12 endpoints. I'll add this to the proto if needed, or just mock it here for now.
-	http.Error(w, "Not implemented yet", http.StatusNotImplemented)
+	writeJSONError(w, "Not implemented yet", http.StatusNotImplemented)
+}
+
+func writeJSONError(w http.ResponseWriter, errMsg string, statusCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(map[string]string{
+		"error":   errMsg,
+		"message": errMsg,
+	})
 }
 
 func writeJSONResponse(w http.ResponseWriter, resp interface{}, err error) {
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		st, ok := status.FromError(err)
+		statusCode := http.StatusInternalServerError
+		if ok {
+			switch st.Code() {
+			case codes.InvalidArgument:
+				statusCode = http.StatusBadRequest
+			case codes.Unauthenticated:
+				statusCode = http.StatusUnauthorized
+			case codes.PermissionDenied:
+				statusCode = http.StatusForbidden
+			case codes.NotFound:
+				statusCode = http.StatusNotFound
+			case codes.AlreadyExists:
+				statusCode = http.StatusConflict
+			case codes.Unimplemented:
+				statusCode = http.StatusNotImplemented
+			}
+		}
+		writeJSONError(w, err.Error(), statusCode)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
