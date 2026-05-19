@@ -22,10 +22,23 @@ async function apiCall(endpoint, method = 'GET', body = null) {
 
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-        const data = await response.json();
+        
+        let data;
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            data = await response.json();
+        } else {
+            const text = await response.text();
+            data = { message: text };
+        }
         
         if (!response.ok) {
-            throw new Error(data.message || 'API request failed');
+            // Clean up common gRPC errors
+            let msg = data.message || 'API request failed';
+            if (msg.includes("desc = ")) {
+                msg = msg.split("desc = ")[1];
+            }
+            throw new Error(msg);
         }
         
         return data;
