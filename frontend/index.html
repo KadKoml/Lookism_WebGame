@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Lookism RPG</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="api.js"></script>
     <style>
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -259,6 +260,7 @@
                     </div>
                     <div class="space-y-3 mb-4">
                         <input id="auth-username" type="text" placeholder="Имя пользователя" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
+                        <input id="auth-email" type="email" placeholder="Email (для уведомлений)" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
                         <input id="auth-password" type="password" placeholder="Пароль" class="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition">
                     </div>
                     <p id="auth-error" class="text-red-400 text-xs text-center mb-3 hidden"></p>
@@ -1048,47 +1050,75 @@
             }
         }
 
-        // --- AUTH SYSTEM (localStorage mock for UserService proto) ---
-        function registerUser() {
+        // --- AUTH SYSTEM (Real connection to API Gateway / User Service) ---
+        async function registerUser() {
             const username = document.getElementById('auth-username').value.trim();
+            const email = document.getElementById('auth-email').value.trim();
             const password = document.getElementById('auth-password').value.trim();
             const errEl = document.getElementById('auth-error');
             errEl.classList.add('hidden');
 
-            if (!username || !password) { errEl.textContent = 'Заполните все поля!'; errEl.classList.remove('hidden'); return; }
+            if (!username || !email || !password) { errEl.textContent = 'Заполните все поля!'; errEl.classList.remove('hidden'); return; }
             if (username.length < 3) { errEl.textContent = 'Имя минимум 3 символа!'; errEl.classList.remove('hidden'); return; }
             if (password.length < 4) { errEl.textContent = 'Пароль минимум 4 символа!'; errEl.classList.remove('hidden'); return; }
 
-            const usersDB = JSON.parse(localStorage.getItem('lookism_users') || '{}');
-            if (usersDB[username]) { errEl.textContent = 'Пользователь уже существует!'; errEl.classList.remove('hidden'); return; }
+            try {
+                errEl.textContent = 'Регистрация на сервере...';
+                errEl.classList.remove('text-red-400', 'hidden');
+                errEl.classList.add('text-blue-400');
+                
+                const data = await apiRegister(username, email, password);
+                
+                errEl.classList.add('hidden');
+                errEl.classList.remove('text-blue-400');
+                errEl.classList.add('text-red-400');
 
-            usersDB[username] = { password: password, createdAt: Date.now() };
-            localStorage.setItem('lookism_users', JSON.stringify(usersDB));
-
-            currentUser = username;
-            localStorage.setItem('lookism_last_user', username);
-            // Create fresh state for new user
-            state = JSON.parse(JSON.stringify(DEFAULT_STATE));
-            saveState();
-            renderProfile();
+                currentUser = username;
+                localStorage.setItem('lookism_last_user', username);
+                localStorage.setItem('lookism_user_email', email);
+                
+                state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+                saveState();
+                renderProfile();
+            } catch (err) {
+                errEl.classList.remove('text-blue-400');
+                errEl.classList.add('text-red-400');
+                errEl.textContent = 'Ошибка: ' + err.message;
+                errEl.classList.remove('hidden');
+            }
         }
 
-        function loginUser() {
-            const username = document.getElementById('auth-username').value.trim();
+        async function loginUser() {
+            const email = document.getElementById('auth-email').value.trim(); // Login uses email as credential in our auth design
             const password = document.getElementById('auth-password').value.trim();
             const errEl = document.getElementById('auth-error');
             errEl.classList.add('hidden');
 
-            if (!username || !password) { errEl.textContent = 'Заполните все поля!'; errEl.classList.remove('hidden'); return; }
+            if (!email || !password) { errEl.textContent = 'Заполните все поля (Email и Пароль)!'; errEl.classList.remove('hidden'); return; }
 
-            const usersDB = JSON.parse(localStorage.getItem('lookism_users') || '{}');
-            if (!usersDB[username]) { errEl.textContent = 'Пользователь не найден!'; errEl.classList.remove('hidden'); return; }
-            if (usersDB[username].password !== password) { errEl.textContent = 'Неверный пароль!'; errEl.classList.remove('hidden'); return; }
+            try {
+                errEl.textContent = 'Вход...';
+                errEl.classList.remove('text-red-400', 'hidden');
+                errEl.classList.add('text-blue-400');
 
-            currentUser = username;
-            localStorage.setItem('lookism_last_user', username);
-            loadState();
-            renderProfile();
+                const data = await apiLogin(email, password);
+
+                errEl.classList.add('hidden');
+                errEl.classList.remove('text-blue-400');
+                errEl.classList.add('text-red-400');
+
+                currentUser = data.user.username;
+                localStorage.setItem('lookism_last_user', currentUser);
+                localStorage.setItem('lookism_user_email', email);
+                
+                loadState();
+                renderProfile();
+            } catch (err) {
+                errEl.classList.remove('text-blue-400');
+                errEl.classList.add('text-red-400');
+                errEl.textContent = 'Ошибка: ' + err.message;
+                errEl.classList.remove('hidden');
+            }
         }
 
         function logoutUser() {
@@ -1110,12 +1140,11 @@
                 authDiv.classList.add('hidden');
                 dashDiv.classList.remove('hidden');
 
-                const usersDB = JSON.parse(localStorage.getItem('lookism_users') || '{}');
-                const userData = usersDB[currentUser];
-                const joinDate = userData ? new Date(userData.createdAt).toLocaleDateString('ru-RU') : '—';
+                const joinDate = new Date().toLocaleDateString('ru-RU');
+                const userEmail = localStorage.getItem('lookism_user_email') || '—';
 
-                document.getElementById('profile-name').textContent = currentUser;
-                document.getElementById('profile-joined').textContent = 'Дата регистрации: ' + joinDate;
+                document.getElementById('profile-name').innerHTML = `${currentUser} <span class="text-xs text-green-400 font-normal block mt-0.5">🟢 Connected to API Gateway</span>`;
+                document.getElementById('profile-joined').innerHTML = `Email: ${userEmail}<br>Регистрация на бэкенде: Да`;
                 document.getElementById('prof-money').textContent = state.money;
                 document.getElementById('prof-cards').textContent = state.collection.length;
                 document.getElementById('prof-max-lvl').textContent = state.collection.length > 0 ? Math.max(...state.collection.map(c => c.level)) : 0;
