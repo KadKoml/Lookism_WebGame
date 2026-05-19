@@ -52,14 +52,14 @@ async function apiCall(endpoint, method = 'GET', body = null) {
 async function apiRegister(username, email, password) {
     const data = await apiCall('/auth/register', 'POST', { username, email, password });
     localStorage.setItem('jwt_token', data.token);
-    localStorage.setItem('user_id', data.user.id);
+    localStorage.setItem('user_id', data.user_id);
     return data;
 }
 
 async function apiLogin(email, password) {
     const data = await apiCall('/auth/login', 'POST', { email, password });
     localStorage.setItem('jwt_token', data.token);
-    localStorage.setItem('user_id', data.user.id);
+    localStorage.setItem('user_id', data.user_id);
     return data;
 }
 
